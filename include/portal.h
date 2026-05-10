@@ -16,6 +16,7 @@
 #include <ESPmDNS.h>
 #include "settings.h"
 #include "themes.h"
+#include "timezones.h"
 #include "portal_html.h"
 #include "status_html.h"
 
@@ -140,6 +141,7 @@ private:
         });
         _server.on("/scan",   HTTP_GET,  [this]() { handleScan(); });
         _server.on("/themes", HTTP_GET,  [this]() { handleThemes(); });
+        _server.on("/timezones", HTTP_GET, [this]() { handleTimezones(); });
         _server.on("/api",    HTTP_GET,  [this]() { handleApi(); });
         _server.on("/save",   HTTP_POST, [this]() { handleSave(); });
     }
@@ -163,6 +165,18 @@ private:
         }
         json += "]";
         WiFi.scanDelete();
+        _server.send(200, "application/json", json);
+    }
+
+    void handleTimezones() {
+        String json = "[";
+        for (uint8_t i = 0; i < TIMEZONE_COUNT; i++) {
+            if (i > 0) json += ",";
+            json += "{\"idx\":" + String(i)
+                  + ",\"label\":\"" + String(TIMEZONES[i].label) + "\""
+                  + ",\"posix\":\"" + String(TIMEZONES[i].posix) + "\"}";
+        }
+        json += "]";
         _server.send(200, "application/json", json);
     }
 
@@ -207,6 +221,8 @@ private:
         j += ",\"sex\":\"" + String(s.sex) + "\"";
         j += ",\"theme\":" + String(s.theme);
         j += ",\"theme_label\":\"" + String(th.label) + "\"";
+        j += ",\"tz\":" + String(s.tz);
+        j += ",\"tz_label\":\"" + String(getTimezone(s.tz).label) + "\"";
         j += ",\"colors\":{\"bg\":\"" + String(bgHex) +
              "\",\"accent\":\"" + String(accentHex) +
              "\",\"text\":\""   + String(textHex)   + "\"}";
@@ -233,6 +249,8 @@ private:
         s.sex      = sx.length() ? sx[0] : 'M';
         int themeIdx = extractInt(body, "theme");
         s.theme    = (themeIdx < 0 || themeIdx >= THEME_COUNT) ? 0 : (uint8_t)themeIdx;
+        int tzIdx  = extractInt(body, "tz");
+        s.tz       = (tzIdx < 0 || tzIdx >= TIMEZONE_COUNT) ? 1 : (uint8_t)tzIdx;
         s.configured = true;
 
         // Empty password is allowed in remote mode if the user only wants to

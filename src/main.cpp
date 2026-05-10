@@ -18,6 +18,7 @@
 #include "portal.h"
 #include "display.h"
 #include "stats.h"
+#include "timezones.h"
 
 // CYD touch pins (XPT2046 on HSPI)
 #define XPT_CS    33
@@ -116,9 +117,10 @@ void setup() {
         ESP.restart();
     }
 
-    // POSIX timezone for UK with auto BST. Could be made configurable later.
-    configTzTime("GMT0BST,M3.5.0/1,M10.5.0/2",
-                 "pool.ntp.org", "time.nist.gov");
+    // POSIX timezone from settings — DST handled automatically.
+    const TimeZone& tz = getTimezone(s.tz);
+    Serial.printf("[time] tz: %s (%s)\n", tz.label, tz.posix);
+    configTzTime(tz.posix, "pool.ntp.org", "time.nist.gov");
     disp.showStatus("Syncing time", "NTP...");
     if (!waitForTime(15000)) {
         disp.showStatus("Time sync failed", "Will retry");

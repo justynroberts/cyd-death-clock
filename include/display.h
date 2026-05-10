@@ -69,7 +69,6 @@ public:
         drawProgress(t, st);
         drawQuote(t);
         drawFooter(t, st);
-        drawPulseRing(t, secs);
 
         // Per-theme overlays
         if (strcmp(t.name, "matrix") == 0) drawScanlines();
@@ -215,38 +214,38 @@ private:
         _spr.unloadFont();
     }
 
-    // ── CLOCK BAND (y=156..188) ─────────────────────────────────────────
+    // ── CLOCK BAND (y=152..195, font48 = 43px tall) ────────────────────
+    // Bar starts at y=198, so clock must end by y=195. Bumped up from 156.
     void drawClock(const Theme& t, const LifeStats& st, bool tick) {
-        // Hourglass icon left of clock (animated: alternates frames)
-        drawIcon(40, 158, icon_hourglass, ICON_HOURGLASS_W, ICON_HOURGLASS_H,
-                 tick ? t.accent : t.muted);
+        // Hourglass icons flanking the clock, vertically centred (clock midline
+        // at y ≈ 173). Icon is 17px tall, so top at y=165.
+        drawIcon       (40,  165, icon_hourglass, ICON_HOURGLASS_W, ICON_HOURGLASS_H,
+                        tick ? t.accent : t.muted);
+        drawIconMirror (264, 165, icon_hourglass, ICON_HOURGLASS_W, ICON_HOURGLASS_H,
+                        tick ? t.accent : t.muted, true, false);
 
-        // Mirror right
-        drawIconMirror(264, 158, icon_hourglass, ICON_HOURGLASS_W, ICON_HOURGLASS_H,
-                       tick ? t.accent : t.muted, true, false);
-
-        // Time text — split into "HH:MM:" and "SS" so seconds tint per tick
         _spr.loadFont(outfit_semibold_48);
         char hm[12], ss[8];
         snprintf(hm, sizeof(hm), "%02ld:%02ld:", st.hrs, st.mins);
         snprintf(ss, sizeof(ss), "%02ld", st.secs);
         int hmW = _spr.textWidth(hm);
         int ssW = _spr.textWidth(ss);
-        int totalW = hmW + ssW;
-        int xStart = (320 - totalW) / 2;
+        int xStart = (320 - (hmW + ssW)) / 2;
 
         _spr.setTextDatum(TL_DATUM);
         _spr.setTextColor(t.text, t.bg);
-        _spr.drawString(hm, xStart, 156);
+        _spr.drawString(hm, xStart, 152);
         _spr.setTextColor(tick ? t.accent : t.text, t.bg);
-        _spr.drawString(ss, xStart + hmW, 156);
+        _spr.drawString(ss, xStart + hmW, 152);
         _spr.unloadFont();
     }
 
-    // ── PROGRESS BAR (y=200..212) — segmented w/ subtle gradient ───────
+    // ── PROGRESS BAR (y=198..208) — segmented w/ subtle gradient.
+    // No pct text overlay — the filled segment count and the percentage in
+    // the bar already communicate it visually. Saves a whole row.
     void drawProgress(const Theme& t, const LifeStats& st) {
         const int segCount = 30;
-        const int segW = 8, segH = 12, gap = 2;
+        const int segW = 8, segH = 10, gap = 2;
         int totalW = segCount * segW + (segCount - 1) * gap;
         int barX   = (320 - totalW) / 2;
         int filled = (int)(segCount * st.pct + 0.5f);
@@ -255,62 +254,39 @@ private:
             int x = barX + i * (segW + gap);
             uint16_t c;
             if (i < filled) {
-                // Filled — gradient from accent to lighter near top
                 c = (i == filled - 1) ? blend(t.accent, t.text, 96) : t.accent;
             } else {
                 c = t.panel;
             }
-            _spr.fillRect(x, 200, segW, segH, c);
+            _spr.fillRect(x, 198, segW, segH, c);
         }
-
-        // Pct text below
-        _spr.loadFont(outfit_medium_12);
-        _spr.setTextDatum(TC_DATUM);
-        _spr.setTextColor(t.muted, t.bg);
-        char pctS[16];
-        snprintf(pctS, sizeof(pctS), "%.2f%% lived", st.pct * 100.0f);
-        _spr.drawString(pctS, 160, 215);
-        _spr.unloadFont();
     }
 
-    // ── QUOTE (y=222..236) ─────────────────────────────────────────────
+    // ── QUOTE (BC y=222) ───────────────────────────────────────────────
+    // No ornaments — text alone, in accent, with em-dashes for framing.
     void drawQuote(const Theme& t) {
-        // Ornament left + right of quote
-        drawIcon(64,  226, icon_ornament, ICON_ORNAMENT_W, ICON_ORNAMENT_H, t.muted);
-        drawIcon(224, 226, icon_ornament, ICON_ORNAMENT_W, ICON_ORNAMENT_H, t.muted);
-
         _spr.loadFont(outfit_medium_12);
-        _spr.setTextDatum(TC_DATUM);
+        _spr.setTextDatum(BC_DATUM);
         _spr.setTextColor(t.accent, t.bg);
-        _spr.drawString("Make Every Day Count", 160, 224);
+        _spr.drawString("- Make Every Day Count -", 160, 222);
         _spr.unloadFont();
     }
 
-    // ── FOOTER (y=232..240) ────────────────────────────────────────────
+    // ── FOOTER (BC y=240) ──────────────────────────────────────────────
+    // Bottom edge anchored; 18-row gap above quote (y=222) leaves visible
+    // breathing room since font12 height is ~14 rows.
     void drawFooter(const Theme& t, const LifeStats& st) {
         static const char* MON[] = {"Jan","Feb","Mar","Apr","May","Jun",
                                     "Jul","Aug","Sep","Oct","Nov","Dec"};
         char foot[40];
         int mIdx = (st.projMonth >= 1 && st.projMonth <= 12) ? st.projMonth - 1 : 0;
-        snprintf(foot, sizeof(foot), "Projected: %02d %s %d",
-                 st.projDay, MON[mIdx], st.projYear);
+        snprintf(foot, sizeof(foot), "Projected: %02d %s %d   |   %.2f%% lived",
+                 st.projDay, MON[mIdx], st.projYear, st.pct * 100.0f);
         _spr.loadFont(outfit_medium_12);
         _spr.setTextDatum(BC_DATUM);
         _spr.setTextColor(t.muted, t.bg);
-        _spr.drawString(foot, 160, 240);
+        _spr.drawString(foot, 160, 238);
         _spr.unloadFont();
-    }
-
-    // ── PULSE RING — radial expanding ring around clock baseline ───────
-    void drawPulseRing(const Theme& t, long secs) {
-        // Two concentric rings that pulse at the start of each second.
-        int cx = 160, cy = 172;
-        int r = 6 + ((millis() / 50) % 12);
-        uint8_t alpha = 200 - r * 12;
-        if (alpha > 30) {
-            uint16_t c = blend(t.accent, t.bg, alpha);
-            _spr.drawCircle(cx, cy, r, c);
-        }
     }
 
     // ── DUST MOTES — drifting particles across the entire frame ────────

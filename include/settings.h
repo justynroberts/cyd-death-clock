@@ -12,6 +12,7 @@ struct Settings {
     int     dobDay;
     char    sex;        // 'M' or 'F'
     uint8_t theme;      // index into THEMES[]; out-of-range falls back to 0
+    uint8_t tz;         // index into TIMEZONES[]; out-of-range falls back to UK
     bool    configured; // true once user has saved valid settings
 
     bool isValid() const {
@@ -40,6 +41,7 @@ public:
         s.dobDay     = prefs.getInt("dd", 0);
         s.sex        = (char)prefs.getUChar("sex", 'M');
         s.theme      = prefs.getUChar("theme", 0);
+        s.tz         = prefs.getUChar("tz", 1);   // default UK
         s.configured = prefs.getBool("cfg", false);
         return s;
     }
@@ -52,6 +54,7 @@ public:
         prefs.putInt("dd", s.dobDay);
         prefs.putUChar("sex", (uint8_t)s.sex);
         prefs.putUChar("theme", s.theme);
+        prefs.putUChar("tz", s.tz);
         prefs.putBool("cfg", true);
     }
 

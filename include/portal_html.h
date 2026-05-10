@@ -185,6 +185,12 @@ const char PORTAL_HTML[] PROGMEM = R"HTML(
     <input id="theme" type="hidden" value="0">
   </div>
 
+  <div class="card">
+    <h2>Timezone</h2>
+    <select id="tz"></select>
+    <div class="help">DST handled automatically via POSIX TZ string.</div>
+  </div>
+
   <button onclick="save()">Save & Reboot</button>
   <div id="status"></div>
 </div>
@@ -232,6 +238,20 @@ function selectTheme(idx) {
   });
 }
 
+async function loadTimezones() {
+  const sel = document.getElementById('tz');
+  try {
+    const r = await fetch('/timezones');
+    const zones = await r.json();
+    sel.innerHTML = zones.map(z =>
+      `<option value="${z.idx}">${z.label}</option>`
+    ).join('');
+    sel.value = '1'; // default UK
+  } catch(e) {
+    sel.innerHTML = '<option value="1">UK (default)</option>';
+  }
+}
+
 async function save() {
   const data = {
     ssid:  document.getElementById('ssid').value.trim(),
@@ -240,7 +260,8 @@ async function save() {
     dm:    parseInt(document.getElementById('dm').value),
     dd:    parseInt(document.getElementById('dd').value),
     sex:   document.getElementById('sex').value,
-    theme: parseInt(document.getElementById('theme').value)
+    theme: parseInt(document.getElementById('theme').value),
+    tz:    parseInt(document.getElementById('tz').value)
   };
   const status = document.getElementById('status');
   if (!data.ssid || !data.dy || !data.dm || !data.dd) {
@@ -279,6 +300,14 @@ async function prefill() {
       document.getElementById('dd').value = parseInt(da);
     }
     if (d.sex) document.getElementById('sex').value = d.sex;
+    if (typeof d.tz === 'number') {
+      const trySel = () => {
+        const opt = document.querySelector(`#tz option[value="${d.tz}"]`);
+        if (opt) document.getElementById('tz').value = d.tz;
+        else setTimeout(trySel, 50);
+      };
+      trySel();
+    }
     if (typeof d.theme === 'number') {
       // selectTheme runs after loadThemes finishes; retry until grid exists
       const trySel = () => {
@@ -293,10 +322,11 @@ async function prefill() {
   } catch(e) { /* captive mode — /api absent or timing out, fine */ }
 }
 
-// Auto-scan + load themes + pre-fill on page load
+// Auto-scan + load themes + load timezones + pre-fill on page load
 window.addEventListener('load', () => {
   setTimeout(scan, 200);
   loadThemes();
+  loadTimezones();
   prefill();
 });
 </script>
