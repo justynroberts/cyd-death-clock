@@ -62,11 +62,14 @@ def render_vlw(ttf_path: str, px: int, out_path: str, glyphs=GLYPHS_ALL):
                             0,            # padding
                             max_ascent,
                             max_descent))
-        # Glyph table
+        # Glyph metadata table — all 28-byte headers contiguous first.
+        # TFT_eSPI computes bitmapPtr = 24 + gCount*28, so bitmaps MUST follow
+        # all metadata, not be interleaved per glyph.
         for cp, w, h, adv, top, left, pixels in rendered:
-            # TFT_eSPI's "dY" stored as positive: ascent (rows above baseline).
             f.write(struct.pack(">IIIIiiI",
                                 cp, h, w, adv, top, left, 0))
+        # Then all bitmap pixel data contiguous, in the same glyph order.
+        for cp, w, h, adv, top, left, pixels in rendered:
             f.write(pixels)
     print(f"  {out_path}: {len(rendered)} glyphs, h+d={max_ascent}+{max_descent}, "
           f"size={os.path.getsize(out_path)} B")
