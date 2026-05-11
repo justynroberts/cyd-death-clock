@@ -130,6 +130,9 @@ void setup() {
     // Start the remote web UI + mDNS responder. From now on the device is
     // reachable at http://<hostname>.local/ on the home network.
     remote.runRemote();
+    disp.setNetworkInfo(remote.hostname(),
+                        WiFi.localIP().toString(),
+                        s.ssid);
     disp.showStatus(remote.hostname() + ".local",
                     WiFi.localIP().toString());
     delay(3500);
@@ -156,8 +159,8 @@ void loop() {
     } else if (!touched && touchActive) {
         // Released
         if (!longPressFired && (now - touchDownAt) > 50 && (now - touchDownAt) < 800) {
-            // Short tap - toggle mode
-            viewMode = 1 - viewMode;
+            // Short tap - cycle through modes (0=remaining, 1=lived, 2=info)
+            viewMode = (viewMode + 1) % 3;
             lastRender = 0;  // force redraw
         }
         touchActive = false;

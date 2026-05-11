@@ -7,6 +7,7 @@
 #include "life_tables.h"
 #include "settings.h"
 #include "themes.h"
+#include "timezones.h"
 #include "stats.h"
 #include "icons.h"
 #include "fonts_outfit.h"
@@ -102,24 +103,37 @@ public:
         _tft.unloadFont();
     }
 
-    // Main render. mode: 0 = remaining, 1 = lived.
+    // Stash network info for the info-card mode. Called once after WiFi+mDNS
+    // are up. Strings are copied.
+    void setNetworkInfo(const String& host, const String& ip,
+                        const String& ssid) {
+        _host = host; _ip = ip; _ssid = ssid;
+    }
+
+    // Main render. mode: 0 = remaining, 1 = lived, 2 = network info card.
     void render(const Settings& s, const LifeStats& st, int mode) {
         const Theme& t = getTheme(s.theme);
         const long secs = st.secs;
-        const bool tick = (secs & 1);  // alternates every second
+        const bool tick = (secs & 1);
 
         _spr.fillSprite(t.bg);
 
         drawDustMotes(t);
         drawHeader(t, s, st, mode);
         drawECG(t, secs);
-        drawHero(t, st);
-        drawClock(t, st, tick);
+
+        if (mode == 2) {
+            drawInfoCard(t, s);
+        } else {
+            drawHero(t, st);
+            drawSubline(t, st, mode);
+            drawClock(t, st, tick);
+        }
+
         drawProgress(t, st);
         drawQuote(t);
-        drawFooter(t, st);
+        drawFooter(t, st, mode);
 
-        // Per-theme overlays
         if (strcmp(t.name, "matrix") == 0) drawScanlines();
 
         _spr.pushSprite(0, 0);
@@ -128,6 +142,11 @@ public:
 private:
     TFT_eSPI&   _tft;
     TFT_eSprite _spr;
+
+    // Network info populated by setNetworkInfo(); used by mode-2 card.
+    String _host;
+    String _ip;
+    String _ssid;
 
     // Dust motes — 12 sub-pixel particles drifting upward
     struct Mote { int16_t x, y; uint8_t speed, phase; };
@@ -171,7 +190,9 @@ private:
         _spr.loadFont(outfit_medium_22);
         _spr.setTextDatum(TL_DATUM);
         _spr.setTextColor(t.accent, t.bg);
-        const char* title = (mode == 0) ? "MEMENTO MORI" : "TIME LIVED";
+        const char* title = (mode == 0) ? "MEMENTO MORI"
+                          : (mode == 1) ? "TIME LIVED"
+                                        : "NETWORK";
         _spr.drawString(title, 38, 4);
 
         // Right side: sex + age, smaller
@@ -253,12 +274,17 @@ private:
         // Bottom-right (mirror both)
         drawIconMirror(fx + frameW - 12, fy + frameH - 12,    icon_bracket_tl, 12, 12, t.muted, true, true);
 
-        // Subline under the number
+    }
+
+    // Subline drawn after the hero block. Pulled out so we can pass mode
+    // and switch "remaining" / "lived".
+    void drawSubline(const Theme& t, const LifeStats& st, int mode) {
         _spr.loadFont(outfit_regular_16);
         _spr.setTextDatum(TC_DATUM);
         _spr.setTextColor(t.text, t.bg);
         char sub[40];
-        snprintf(sub, sizeof(sub), "%ld days remaining", st.remDays);
+        snprintf(sub, sizeof(sub), "%ld days %s",
+                 st.remDays, mode == 0 ? "remaining" : "lived");
         _spr.drawString(sub, 160, 134);
         _spr.unloadFont();
     }
@@ -324,17 +350,65 @@ private:
     // ── FOOTER (BC y=240) ──────────────────────────────────────────────
     // Bottom edge anchored; 18-row gap above quote (y=222) leaves visible
     // breathing room since font12 height is ~14 rows.
-    void drawFooter(const Theme& t, const LifeStats& st) {
-        static const char* MON[] = {"Jan","Feb","Mar","Apr","May","Jun",
-                                    "Jul","Aug","Sep","Oct","Nov","Dec"};
-        char foot[40];
-        int mIdx = (st.projMonth >= 1 && st.projMonth <= 12) ? st.projMonth - 1 : 0;
-        snprintf(foot, sizeof(foot), "Projected: %02d %s %d   |   %.2f%% lived",
-                 st.projDay, MON[mIdx], st.projYear, st.pct * 100.0f);
+    void drawFooter(const Theme& t, const LifeStats& st, int mode) {
         _spr.loadFont(outfit_medium_12);
         _spr.setTextDatum(BC_DATUM);
         _spr.setTextColor(t.muted, t.bg);
+
+        char foot[64];
+        if (mode == 2) {
+            // Info mode footer — WiFi SSID (truncated if long).
+            String ssid = _ssid.length() > 30 ? _ssid.substring(0, 30) + "..." : _ssid;
+            snprintf(foot, sizeof(foot), "WiFi: %s", ssid.c_str());
+        } else {
+            static const char* MON[] = {"Jan","Feb","Mar","Apr","May","Jun",
+                                        "Jul","Aug","Sep","Oct","Nov","Dec"};
+            int mIdx = (st.projMonth >= 1 && st.projMonth <= 12) ? st.projMonth - 1 : 0;
+            snprintf(foot, sizeof(foot), "Projected: %02d %s %d   |   %.2f%% lived",
+                     st.projDay, MON[mIdx], st.projYear, st.pct * 100.0f);
+        }
         _spr.drawString(foot, 160, 238);
+        _spr.unloadFont();
+    }
+
+    // ── INFO CARD (mode 2) — network details, replaces hero + clock ─────
+    void drawInfoCard(const Theme& t, const Settings& s) {
+        // y=46:    label "Web access:"
+        // y=64:    URL (Outfit Medium 22, accent)
+        // y=98:    label "IP address:"
+        // y=124:   IP (Outfit SemiBold 48, accent — digits-only font)
+        // y=176:   theme + tz mini-row
+
+        _spr.loadFont(outfit_regular_16);
+        _spr.setTextDatum(TC_DATUM);
+        _spr.setTextColor(t.muted, t.bg);
+        _spr.drawString("Web access:", 160, 46);
+        _spr.unloadFont();
+
+        String url = _host.length() ? (_host + ".local") : String("not connected");
+        _spr.loadFont(outfit_medium_22);
+        _spr.setTextColor(t.accent, t.bg);
+        _spr.drawString(url, 160, 66);
+        _spr.unloadFont();
+
+        _spr.loadFont(outfit_regular_16);
+        _spr.setTextColor(t.muted, t.bg);
+        _spr.drawString("IP address:", 160, 98);
+        _spr.unloadFont();
+
+        _spr.loadFont(outfit_semibold_48);
+        _spr.setTextColor(t.accent, t.bg);
+        _spr.drawString(_ip.length() ? _ip : String("—"), 160, 122);
+        _spr.unloadFont();
+
+        // Theme + timezone line
+        _spr.loadFont(outfit_medium_12);
+        _spr.setTextColor(t.muted, t.bg);
+        char meta[48];
+        snprintf(meta, sizeof(meta), "Theme: %s   |   TZ: %s",
+                 getTheme(s.theme).label,
+                 (s.tz < TIMEZONE_COUNT ? TIMEZONES[s.tz].label : "—"));
+        _spr.drawString(meta, 160, 180);
         _spr.unloadFont();
     }
 
