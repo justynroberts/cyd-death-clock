@@ -124,14 +124,15 @@ public:
 
         if (mode == 2) {
             drawInfoCard(t, s);
+            // Info mode: no progress bar, no quote — just footer + attribution.
         } else {
             drawHero(t, st);
             drawSubline(t, st, mode);
             drawClock(t, st, tick);
+            drawProgress(t, st);
+            drawQuote(t);
         }
 
-        drawProgress(t, st);
-        drawQuote(t);
         drawFooter(t, st, mode);
 
         if (strcmp(t.name, "matrix") == 0) drawScanlines();
@@ -372,19 +373,16 @@ private:
     }
 
     // ── INFO CARD (mode 2) — network details, replaces hero + clock ─────
+    // No progress bar / quote in this mode (suppressed by render()), so we
+    // have y=46..234 to use, plus the footer at y=238.
     void drawInfoCard(const Theme& t, const Settings& s) {
-        // y=46:    label "Web access:"
-        // y=64:    URL (Outfit Medium 22, accent)
-        // y=98:    label "IP address:"
-        // y=124:   IP (Outfit SemiBold 48, accent — digits-only font)
-        // y=176:   theme + tz mini-row
-
         _spr.loadFont(outfit_regular_16);
         _spr.setTextDatum(TC_DATUM);
         _spr.setTextColor(t.muted, t.bg);
         _spr.drawString("Web access:", 160, 46);
         _spr.unloadFont();
 
+        // Hostname (Medium 22) — the headline of this screen.
         String url = _host.length() ? (_host + ".local") : String("not connected");
         _spr.loadFont(outfit_medium_22);
         _spr.setTextColor(t.accent, t.bg);
@@ -393,22 +391,28 @@ private:
 
         _spr.loadFont(outfit_regular_16);
         _spr.setTextColor(t.muted, t.bg);
-        _spr.drawString("IP address:", 160, 98);
+        _spr.drawString("IP address:", 160, 100);
         _spr.unloadFont();
 
-        _spr.loadFont(outfit_semibold_48);
+        // IP at Regular 16 instead of SemiBold 48 — much smaller, paired
+        // with the URL above as a fallback rather than competing with it.
+        _spr.loadFont(outfit_regular_16);
         _spr.setTextColor(t.accent, t.bg);
-        _spr.drawString(_ip.length() ? _ip : String("—"), 160, 122);
+        _spr.drawString(_ip.length() ? _ip : String("--"), 160, 120);
         _spr.unloadFont();
 
-        // Theme + timezone line
+        // Theme + timezone meta row.
         _spr.loadFont(outfit_medium_12);
         _spr.setTextColor(t.muted, t.bg);
         char meta[48];
         snprintf(meta, sizeof(meta), "Theme: %s   |   TZ: %s",
                  getTheme(s.theme).label,
-                 (s.tz < TIMEZONE_COUNT ? TIMEZONES[s.tz].label : "—"));
-        _spr.drawString(meta, 160, 180);
+                 (s.tz < TIMEZONE_COUNT ? TIMEZONES[s.tz].label : "--"));
+        _spr.drawString(meta, 160, 158);
+
+        // Attribution — placed where the quote would be in other modes.
+        _spr.setTextColor(t.accent, t.bg);
+        _spr.drawString("written by Justyn Roberts for Fintonlabs", 160, 200);
         _spr.unloadFont();
     }
 
