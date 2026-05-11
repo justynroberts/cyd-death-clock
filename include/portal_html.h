@@ -8,7 +8,7 @@ const char PORTAL_HTML[] PROGMEM = R"HTML(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Death Clock Setup</title>
+<title>Memento Mori Setup</title>
 <style>
   :root {
     --bg: #0a0a0b;
@@ -150,7 +150,7 @@ const char PORTAL_HTML[] PROGMEM = R"HTML(
 </head>
 <body>
 <div class="wrap">
-  <h1>Death Clock Setup</h1>
+  <h1>Memento Mori Setup</h1>
   <div class="sub">memento mori, configured properly</div>
 
   <div class="card">

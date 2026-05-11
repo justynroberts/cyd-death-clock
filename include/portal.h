@@ -22,20 +22,24 @@
 
 class CaptivePortal {
 public:
-    CaptivePortal(SettingsStore& store) : _store(store), _server(80) {}
+    CaptivePortal(SettingsStore& store) : _store(store), _server(80) {
+        // Derive AP name and mDNS hostname from MAC suffix once at construction
+        // so callers can display them on screen BEFORE run()/runRemote() runs.
+        uint16_t suffix = (uint16_t)(ESP.getEfuseMac() & 0xFFFF);
+        char buf[32];
+        snprintf(buf, sizeof(buf), "CYD-MementoMori-%04X", suffix);
+        _apName = String(buf);
+        snprintf(buf, sizeof(buf), "mementomori-%04x", suffix);
+        _hostname = String(buf);
+    }
 
     // ── Setup mode (blocking) ────────────────────────────────────────────
     void run() {
         WiFi.mode(WIFI_AP);
-        uint64_t mac = ESP.getEfuseMac();
-        char apName[32];
-        snprintf(apName, sizeof(apName), "CYD-DeathClock-%04X", (uint16_t)(mac & 0xFFFF));
-
         IPAddress apIP(192, 168, 4, 1);
         WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-        WiFi.softAP(apName);
-        Serial.printf("[portal] AP up: %s -> http://192.168.4.1\n", apName);
-        _apName = String(apName);
+        WiFi.softAP(_apName.c_str());
+        Serial.printf("[portal] AP up: %s -> http://192.168.4.1\n", _apName.c_str());
 
         _dns.start(53, "*", apIP);
 
@@ -67,12 +71,7 @@ public:
 
     // ── Remote ops mode (non-blocking) ──────────────────────────────────
     void runRemote() {
-        // Stable hostname tied to MAC suffix.
-        uint64_t mac = ESP.getEfuseMac();
-        char hbuf[32];
-        snprintf(hbuf, sizeof(hbuf), "deathclock-%04x", (uint16_t)(mac & 0xFFFF));
-        _hostname = String(hbuf);
-
+        // Hostname already computed in constructor.
         WiFi.setHostname(_hostname.c_str());
         if (MDNS.begin(_hostname.c_str())) {
             MDNS.addService("http", "tcp", 80);

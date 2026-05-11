@@ -1,4 +1,4 @@
-// main.cpp - CYD Death Clock
+// main.cpp - CYD Memento Mori
 //
 // Boot flow:
 //   1. Init NVS settings
@@ -72,14 +72,14 @@ static bool connectWifi(const Settings& s, uint32_t timeoutMs) {
 
 static void launchPortal() {
     CaptivePortal portal(store);
-    disp.showStatus("Setup mode", "Connect to: " + portal.apName());
+    disp.showSetup(portal.apName());
     portal.run();   // never returns - reboots on save
 }
 
 void setup() {
     Serial.begin(115200);
     delay(200);
-    Serial.println("\n=== CYD Death Clock ===");
+    Serial.println("\n=== CYD Memento Mori ===");
 
     store.begin();
 
@@ -89,7 +89,7 @@ void setup() {
     ts.setRotation(1);
 
     disp.begin(1, 80);
-    disp.showStatus("Death Clock", "starting...");
+    disp.showStatus("Memento Mori", "starting...");
 
     // If touch held during boot, force config mode
     delay(800);

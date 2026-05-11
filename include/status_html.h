@@ -8,7 +8,7 @@ const char STATUS_HTML[] PROGMEM = R"HTML(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Death Clock</title>
+<title>Memento Mori</title>
 <style>
   :root {
     --bg: #0a0a0b;

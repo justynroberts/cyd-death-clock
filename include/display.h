@@ -38,6 +38,55 @@ public:
         seedDust();
     }
 
+    // Setup-mode instructions screen. Shown while the captive portal AP is up.
+    void showSetup(const String& apName) {
+        const Theme& t = getTheme(0);
+        _tft.fillScreen(t.bg);
+
+        // Title
+        _tft.loadFont(outfit_medium_22);
+        _tft.setTextDatum(TC_DATUM);
+        _tft.setTextColor(t.accent, t.bg);
+        _tft.drawString("[ SETUP MODE ]", 160, 8);
+        _tft.unloadFont();
+
+        // Accent divider
+        _tft.drawFastHLine(20, 36, 280, t.accent);
+
+        // Step 1 label
+        _tft.loadFont(outfit_regular_16);
+        _tft.setTextDatum(TC_DATUM);
+        _tft.setTextColor(t.muted, t.bg);
+        _tft.drawString("1.  Join WiFi network", 160, 46);
+        _tft.unloadFont();
+
+        // AP name (highlighted)
+        _tft.loadFont(outfit_medium_22);
+        _tft.setTextColor(t.text, t.bg);
+        _tft.drawString(apName, 160, 70);
+        _tft.unloadFont();
+
+        // Step 2 label
+        _tft.loadFont(outfit_regular_16);
+        _tft.setTextColor(t.muted, t.bg);
+        _tft.drawString("2.  Open in browser", 160, 108);
+        _tft.unloadFont();
+
+        // IP address — big and bold
+        _tft.loadFont(outfit_semibold_48);
+        _tft.setTextColor(t.accent, t.bg);
+        _tft.drawString("192.168.4.1", 160, 132);
+        _tft.unloadFont();
+
+        // Footer hints
+        _tft.loadFont(outfit_medium_12);
+        _tft.setTextDatum(BC_DATUM);
+        _tft.setTextColor(t.muted, t.bg);
+        _tft.drawString("Captive page should open automatically", 160, 222);
+        _tft.drawString("Long-press 3s during use to return here", 160, 238);
+        _tft.unloadFont();
+    }
+
     // Boot/error status — uses 22px Outfit on the live display (no sprite).
     void showStatus(const String& line1, const String& line2 = "") {
         const Theme& t = getTheme(0);
